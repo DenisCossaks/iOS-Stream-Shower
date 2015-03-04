@@ -1,0 +1,80 @@
+//
+//  OpenGLES2DView.m
+//  GLFun
+//
+
+#import "OpenGLES2DView.h"
+
+
+@implementation OpenGLES2DView
+
++ (Class) layerClass
+{
+	return [CAEAGLLayer class];
+}
+
+
+#pragma mark -
+- (BOOL)createFramebuffer {
+	
+	glGenFramebuffersOES(1, &viewFramebuffer);
+	glGenRenderbuffersOES(1, &viewRenderbuffer);
+	
+	glBindFramebufferOES(GL_FRAMEBUFFER_OES, viewFramebuffer);
+	glBindRenderbufferOES(GL_RENDERBUFFER_OES, viewRenderbuffer);
+	[context renderbufferStorage:GL_RENDERBUFFER_OES fromDrawable:(CAEAGLLayer*)self.layer];
+	glFramebufferRenderbufferOES(GL_FRAMEBUFFER_OES, GL_COLOR_ATTACHMENT0_OES, GL_RENDERBUFFER_OES, viewRenderbuffer);
+	
+	glGetRenderbufferParameterivOES(GL_RENDERBUFFER_OES, GL_RENDERBUFFER_WIDTH_OES, &backingWidth);
+	glGetRenderbufferParameterivOES(GL_RENDERBUFFER_OES, GL_RENDERBUFFER_HEIGHT_OES, &backingHeight);
+	
+	if(glCheckFramebufferStatusOES(GL_FRAMEBUFFER_OES) != GL_FRAMEBUFFER_COMPLETE_OES) {
+		NSLog(@"failed to make complete framebuffer object %x", glCheckFramebufferStatusOES(GL_FRAMEBUFFER_OES));
+		return NO;
+	}
+	
+	return YES;
+}
+
+- (id)initWithFrame:(CGRect)frame
+{
+	if((self = [super initWithFrame:frame])) {
+		// Get the layer
+		CAEAGLLayer *eaglLayer = (CAEAGLLayer*) self.layer;
+		eaglLayer.opaque = TRUE;
+		eaglLayer.drawableProperties = [NSDictionary dictionaryWithObjectsAndKeys:
+										[NSNumber numberWithBool:NO], kEAGLDrawablePropertyRetainedBacking, kEAGLColorFormatRGB565, kEAGLDrawablePropertyColorFormat, nil];
+		context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES1];
+		
+		if(!context || ![EAGLContext setCurrentContext:context] || ![self createFramebuffer]) {
+			[self release];
+			return nil;
+		}
+		
+		//Setup buffer and perspective
+		glBindFramebufferOES(GL_FRAMEBUFFER_OES, viewFramebuffer);
+		glViewport(0, 0, backingWidth, backingHeight);
+		glMatrixMode(GL_PROJECTION);
+		glLoadIdentity();
+		glOrthof(0, self.frame.size.width, 0, self.frame.size.height, -1, 1);
+		glMatrixMode(GL_MODELVIEW);
+		
+		//Clear background
+		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT);
+        
+		//Set up draw mode
+		glEnable(GL_TEXTURE_2D);
+		glEnableClientState(GL_VERTEX_ARRAY);
+	}
+	
+	return self;
+}
+
+
+- (void)dealloc {
+	[super dealloc];
+}
+
+
+@end
